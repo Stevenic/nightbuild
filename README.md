@@ -39,6 +39,28 @@ That single file is self-contained. It covers the setup flow, the kickoff flow, 
 
 ---
 
+## Supported coding agents
+
+NightBuild was designed against Claude Code and tested there first, but the canonical [`NIGHTBUILD.md`](NIGHTBUILD.md) spec is agent-agnostic — any coding agent that can read files, run shell commands, and (ideally) re-invoke itself on a schedule can drive a run. The Agent Ready prompt above is the entry point regardless of which agent you use; what differs per agent is **how you skip permission prompts** and **how the loop reschedules itself**.
+
+| Agent | Skip permission prompts | Self-rescheduling |
+|---|---|---|
+| **Claude Code** | `claude --dangerously-skip-permissions`, or `permissionMode: "bypassPermissions"` in `~/.claude/settings.json` | Native — the loop schedules its next wakeup via `ScheduleWakeup` with the `<<autonomous-loop-dynamic>>` sentinel. No external setup. |
+| **OpenAI Codex CLI** | `codex --dangerously-bypass-approvals-and-sandbox` (alias `--yolo`) for full bypass; `codex --full-auto` for softer sandboxed-write + on-request approval; or `--ask-for-approval never` (`-a never`) on its own | No native scheduler — wrap in `cron` (or `launchd` / Task Scheduler) to re-invoke at the cadence the program needs |
+| **GitHub Copilot CLI** | `copilot --allow-all-tools` for any-tool auto-approve, or `--allow-all` / `--yolo` for tools + paths + URLs; the CLI's autopilot mode runs multi-step tasks without per-step approval once enabled | No native scheduler — same external-cron approach as Codex |
+
+### Why you have to skip permission prompts
+
+The autonomous loop runs while you sleep. If the agent stops on every tool call to ask "is it OK to run `npm install`?", every tick stalls until you wake up — defeating the entire premise. NightBuild's authority/boundary defaults (in [`NIGHTBUILD.md`](NIGHTBUILD.md) § "Authority and boundaries") are deliberately conservative: no `git push`, no `--no-verify`, no out-of-project deletions, no external-account state changes. Skipping prompts is safe within those bounds. If your project legitimately needs to expand the allow-list (push to a feature branch, run a known-safe pre-commit format step, etc.), declare it in the per-run program's "Authority overrides" section rather than turning off prompts wholesale at a level the spec can't see.
+
+Pair permission-skipping with branch isolation — the kickoff Branch decision prompt offers a `nightbuild/<YYYY-MM-DD>` branch by default — so morning rollback is always one `git checkout <parent>` away. Run NightBuild on a project you trust enough to let it commit unattended.
+
+### Non-Claude scheduling shim
+
+Agents without a native wakeup primitive need a thin wrapper: a `cron` job (or platform equivalent) that fires every N minutes, re-invokes the agent with the Agent Ready prompt, and exits. The agent runs one tick, writes state, and exits — `cron` handles re-invocation. Under this model the tick's `delaySeconds` field becomes advisory; the cron interval enforces actual cadence. Keep the cron interval below 5 minutes (270s is the sweet spot) so the prompt cache stays warm for active phases.
+
+---
+
 ## Premise
 
 NightBuild is a file-driven autonomous-loop pattern for software work that:
