@@ -7,6 +7,18 @@ Hand off a coding task at bedtime. Wake up to a working artifact and a clean pos
 
 ---
 
+## Overview
+
+NightBuild lets you hand a coding task to an AI agent at bedtime and wake up to a working artifact, a clean post-mortem, and concrete commands to commit or open a PR. Queue what you want done in `TONIGHT.md` across the day, paste a one-line prompt into your coding agent before bed, and find a `MORNING_TODO.md` waiting for you in the morning — wake-up summary plus copy-paste `git`/`gh` commands to keep, merge, or discard the night's work.
+
+Under the hood the agent generates a per-run program (mission, phases, done-bars) from your queued tasks, then runs an autonomous loop that works phase by phase — each phase gated by a testable done-bar, each tick committed, each iteration reflected on so the loop adapts to its own mistakes. The full per-iteration narrative is preserved under `.nightbuild/<date>/` for post-mortem.
+
+**Best fit:** tasks with a clear acceptance criterion ("the smoke test exits 0", "the installer produces a working `.exe`", "all tests green") that decompose into 4–8 phases. **Worst fit:** research-heavy work or ambiguous specs that need human judgement at every step.
+
+**Optional knobs:** branch isolation for trivial morning rollback, Slack / OS-notification / email when the run finishes, a dollar-cost cap, and a project-scoped `learnings.md` corpus that compounds knowledge across nights so future runs anticipate this project's gotchas (flaky tests, slow steps, surprises).
+
+---
+
 ## Agent Ready
 
 NightBuild ships a canonical [`NIGHTBUILD.md`](NIGHTBUILD.md) — the operational spec a coding agent reads to set up and run a NightBuild on your project. Paste this prompt into your agent of choice:
