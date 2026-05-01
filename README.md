@@ -87,11 +87,11 @@ At the repo root:
 
 | File | Purpose | Gitignore default |
 |---|---|---|
-| `TONIGHT.md` | Human-authored task queue. The user accumulates intent into it across the day; the agent drains it at kickoff (synthesizing the items into `<run_dir>/program.md`), then resets it to the empty scaffold so it's ready for tomorrow night's queue. | Tracked on solo repos; ignored on multi-person repos. |
+| `TONIGHT.md` | Human-authored task queue. The user accumulates intent into it across the day; the agent drains it at kickoff (synthesizing the items into `<run_dir>/program.md`), then resets it to the empty scaffold so it's ready for tomorrow night's queue. | Tracked in **shared** mode; ignored in **private** mode. |
 | `MORNING_TODO.md` | Written when the success criterion is met (or the run terminates). The agent's morning summary — what landed, what's blocked, the concrete `git` commands to commit/PR/discard the night's work, and resume instructions. | Tracked. |
 | `STOP` *(optional sentinel)* | If the user creates this file, the loop stops cooperatively next tick. | Ignored. |
 
-Under the top-level `.nightbuild/` directory (always gitignored — these are local-only artifacts that don't belong in version control), two cross-run files plus per-run dated folders:
+The top-level `.nightbuild/` directory — Setup asks one question, **private** vs **shared**, and writes `.gitignore` accordingly. **Private** *(default on multi-person repos)*: ignore `.nightbuild/` and `TONIGHT.md` entirely so each driver's queue, run history, and learnings stay on their machine. **Shared** *(default on solo repos)*: track `.nightbuild/` so `learnings.md` and per-run `program.md`/`log.md`/`handoff.md` follow the repo across clones, with `raw/` (large build/test output) and `preferences.json` (machine-specific) carved out so they stay local. `preferences.json` is always gitignored regardless of mode.
 
 | Path | Scope | Purpose |
 |---|---|---|
@@ -304,7 +304,7 @@ What the agent does:
 
 - Confirms the repo is a git repo (offers `git init` if not).
 - Detects solo vs multi-person repo (`git log` authors, presence of checked-in `.gitignore`).
-- Configures `.gitignore` — always adds `.nightbuild/`; asks about `TONIGHT.md` on multi-person repos.
+- Asks one question: **private** (per-user — each driver's queue, run history, and learnings stay local) or **shared** (project-wide — they live in the repo and follow it across clones). Solo repos default to shared; multi-person repos default to private. The agent writes `.gitignore` accordingly — `.nightbuild/preferences.json` is always ignored regardless of mode because it holds machine-specific config (notify commands, API rates).
 - Creates `.nightbuild/` and writes the initial `TONIGHT.md` from the embedded scaffold.
 - Prints a "here's how to use NightBuild" overview and exits without starting a run.
 

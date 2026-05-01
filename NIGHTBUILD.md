@@ -22,8 +22,8 @@ If this file and the README disagree, this file wins for behavior. The README ex
 - **Boot tick** — environment validation that runs in-conversation as the last step of kickoff (NOT as the first scheduled wakeup). Catches missing tools / failing prereqs while the user is still awake. If boot fails, surface immediately — do not schedule a wakeup.
 - **Done-bar** — a testable assertion that proves a phase is complete without human judgement.
 - **Morning-readiness gate** — the final smoke that proves the success criterion is met.
-- **`.nightbuild/preferences.json`** — per-clone preferences (branch policy, notification command, cost-rate, etc.). Optional. Created lazily the first time the user picks an "always"/"never" answer or supplies a long-lived setting. Always gitignored (since `.nightbuild/` is gitignored), so preferences are per-machine, not shared with teammates.
-- **`<repo>/.nightbuild/learnings.md`** — *distilled* project-scoped knowledge base (flaky tests, slow steps, project conventions, gotchas). NOT a chronological log — the agent reads tonight's reflections, merges novel lessons into existing topic sections, bumps "last confirmed" dates on lessons reinforced, and refines or replaces entries that are sharpened. Read at kickoff so each run inherits what previous runs learned the hard way. Per-run reflections themselves live in `<run_dir>/log.md`. Always gitignored.
+- **`.nightbuild/preferences.json`** — per-clone preferences (branch policy, notification command, cost-rate, etc.). Optional. Created lazily the first time the user picks an "always"/"never" answer or supplies a long-lived setting. **Always gitignored**, even when the user opts to track the rest of `.nightbuild/`, because the values are machine-specific (local notify commands, personal API rates) and should not propagate to other clones.
+- **`<repo>/.nightbuild/learnings.md`** — *distilled* project-scoped knowledge base (flaky tests, slow steps, project conventions, gotchas). NOT a chronological log — the agent reads tonight's reflections, merges novel lessons into existing topic sections, bumps "last confirmed" dates on lessons reinforced, and refines or replaces entries that are sharpened. Read at kickoff so each run inherits what previous runs learned the hard way. Per-run reflections themselves live in `<run_dir>/log.md`. Tracked in **shared** mode (corpus follows the repo across clones); ignored in **private** mode (each driver's local).
 - **`tick_in_progress`** — boolean flag in `state.json` set true at tick step 6, cleared at step 10. Lets the next tick detect that the prior tick crashed mid-work and recover deterministically rather than trusting stale state.
 
 ---
@@ -48,12 +48,27 @@ First-time bootstrap on a repo. One-shot — creates the files NightBuild needs,
 
 3. **Detect repo type.** Multi-person heuristic: `git log` shows ≥ 2 distinct authors, OR a `.gitignore` is already checked in. Otherwise solo.
 
-4. **Gitignore configuration.**
-   - `.nightbuild/` is **always** gitignored (per-run scratch — never commit it). Append it to `.gitignore`, creating the file if absent. Skip if already listed.
-   - For `TONIGHT.md`: on a multi-person repo, ask:
-     > Should `TONIGHT.md` be gitignored? Recommended for multi-person repos so each driver maintains their own queue. On solo repos, leave it tracked so the queue lives with the project history.
-     
-     On a solo repo, default to tracked and don't prompt. Apply the user's answer by appending or skipping.
+4. **Gitignore configuration.** Ask one question:
+
+   > Should this NightBuild be **private** (per-user — each driver maintains their own `TONIGHT.md` queue, run history, and `learnings.md` locally; nothing shared via git) or **shared** (project-wide — `TONIGHT.md`, run history, and `learnings.md` live in the repo and follow it across clones)?
+
+   Recommend **shared** on a solo repo (single driver — keep the queue and learnings with the project history). Recommend **private** on a multi-person repo (avoids cross-driver merge conflicts and leakage of one driver's intent into another's run). State the recommendation and let the user override.
+
+   Apply the answer by appending to `.gitignore` (creating the file if absent):
+
+   - **Private** →
+     ```
+     .nightbuild/
+     TONIGHT.md
+     ```
+   - **Shared** →
+     ```
+     .nightbuild/*/raw/
+     .nightbuild/preferences.json
+     ```
+     `raw/` is large unreviewable build/test output; `preferences.json` is machine-specific (notify commands, API rates) and stays local in either mode.
+
+   Skip lines that are already present.
 
 5. **Create `.nightbuild/`** at the repo root (empty directory; per-run dated folders are created at kickoff).
 
@@ -455,7 +470,7 @@ Gitignore configuration is owned by the Setup flow and persisted in the project'
 
 ### `.nightbuild/preferences.json` *(optional)*
 
-Created lazily the first time the user picks an "always"/"never" answer at any prompt or supplies a long-lived setting (cost rate, notification command). Read at kickoff. Lives under `.nightbuild/` so it's automatically gitignored — preferences are per-clone/per-machine, not shared with teammates.
+Created lazily the first time the user picks an "always"/"never" answer at any prompt or supplies a long-lived setting (cost rate, notification command). Read at kickoff. Always gitignored — even when the user opts to track the rest of `.nightbuild/`, this file stays local because its values (notify URLs/commands, personal API rates) are machine-specific and shouldn't propagate to other clones.
 
 ```json
 {
