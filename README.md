@@ -15,7 +15,7 @@ Under the hood the agent generates a per-run program (mission, phases, done-bars
 
 **Best fit:** tasks with a clear acceptance criterion ("the smoke test exits 0", "the installer produces a working `.exe`", "all tests green") that decompose into 4–8 phases. **Worst fit:** research-heavy work or ambiguous specs that need human judgement at every step.
 
-**Optional knobs:** branch isolation for trivial morning rollback, Slack / OS-notification / email when the run finishes, a dollar-cost cap, and a project-scoped `learnings.md` corpus that compounds knowledge across nights so future runs anticipate this project's gotchas (flaky tests, slow steps, surprises).
+**Optional knobs:** branch isolation for trivial morning rollback, Slack / OS-notification / email when the run finishes, a dollar-cost cap, and a distilled per-project `learnings.md` knowledge base that the agent curates across nights — novel lessons get added, recurring ones get their confirmation date bumped, superseded ones get refined, so future runs inherit this project's hard-won gotchas without growing into a giant log.
 
 ---
 
@@ -73,7 +73,7 @@ Under the top-level `.nightbuild/` directory (always gitignored — these are lo
 
 | Path | Scope | Purpose |
 |---|---|---|
-| `.nightbuild/learnings.md` | cross-run | Append-only project corpus — one block per run, recording load-bearing lessons (flaky tests, slow steps, surprises). Read at kickoff so the agent anticipates this project's gotchas; appended-to in the End-of-overnight protocol. Never auto-pruned; user can edit. |
+| `.nightbuild/learnings.md` | cross-run | *Distilled* project knowledge base, organized by topic (flaky tests, slow steps, project conventions, gotchas) — not a chronological log. Read at kickoff so the agent inherits past lessons; updated in End-of-overnight by merging novel lessons, bumping confirmation dates on recurring ones, and refining superseded entries. Per-run reflections themselves live in each run's `log.md`. User can edit freely. |
 | `.nightbuild/preferences.json` *(optional)* | cross-run | Per-clone preferences: `branch_policy`, `notify` shell command (Slack/OS-notification/email on terminal events), `usd_per_mtok` cost rate. Created lazily on the first "always"/"never" answer or whenever the user manually configures notifications/cost. |
 | `.nightbuild/<YYYY-MM-DD>/` | per-run | The `run_dir` for tonight's run (suffix `-HHMM` if multiple runs in one day). Each run is fully self-contained inside its own folder. |
 | `.nightbuild/<YYYY-MM-DD>/state.json` | per-run | Machine-readable state. Seeded at kickoff, read at tick start, written at tick end. Includes the pinned NIGHTBUILD.md SHA for context-loss recovery, a `tick_in_progress` flag for crash recovery, and cumulative `tokens_total` / `usd_estimate`. |
@@ -316,7 +316,7 @@ When the success criterion is met (or the run terminates on a stop condition), t
 - **`<run_dir>/handoff.md`** — pre-composed text whose first line is the suggested commit subject and PR title, with a body covering what changed, what didn't land, and how to validate. Pipe directly into `git commit -F` or `gh pr create --body-file`.
 - **`MORNING_TODO.md`** at the repo root — the wake-up summary. Status, what landed, what's blocked, and (when in a git repo) a **Commit & PR** section with concrete `git`/`gh` commands. For runs on a `nightbuild/<YYYY-MM-DD>` isolation branch you get three options as runnable commands: keep + merge, keep + open a PR (using `handoff.md` as the body), or discard. For current-branch runs you get push or PR-open commands.
 - A top-of-log block in `<run_dir>/log.md` — `## MORNING SUMMARY` (success) or `## NEEDS HUMAN` (blocked).
-- A new entry appended to **`<repo>/.nightbuild/learnings.md`** — date, status, phases completed, wall clock, tokens/cost, and the load-bearing reflections from the night. Read at the next kickoff so the agent anticipates this project's gotchas. Compounding value across runs.
+- **`<repo>/.nightbuild/learnings.md`** distilled — the agent reads tonight's reflections, merges any *novel* lessons into the appropriate topic section (Flaky / unreliable, Slow steps, Project conventions, Gotchas, Deferred), bumps `last confirmed` dates on lessons reinforced again, and refines entries that tonight's run sharpened or contradicted. Uneventful runs touch nothing. The result stays small and scannable across many nights.
 - The optional **notify hook** (if `.nightbuild/preferences.json` has a `notify` shell command) fires with `NIGHTBUILD_STATUS` / `NIGHTBUILD_SUMMARY` / `NIGHTBUILD_RUN_DIR` / `NIGHTBUILD_REPO` env vars set — Slack ping, OS notification, email, whatever you wired up. Stops you from sleeping through a 1am block.
 
 The full per-iteration narrative is preserved in `<run_dir>/log.md` for post-mortem.

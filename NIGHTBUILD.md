@@ -23,7 +23,7 @@ If this file and the README disagree, this file wins for behavior. The README ex
 - **Done-bar** — a testable assertion that proves a phase is complete without human judgement.
 - **Morning-readiness gate** — the final smoke that proves the success criterion is met.
 - **`.nightbuild/preferences.json`** — per-clone preferences (branch policy, notification command, cost-rate, etc.). Optional. Created lazily the first time the user picks an "always"/"never" answer or supplies a long-lived setting. Always gitignored (since `.nightbuild/` is gitignored), so preferences are per-machine, not shared with teammates.
-- **`<repo>/.nightbuild/learnings.md`** — append-only project-scoped corpus of run summaries + load-bearing lessons. Read at kickoff so the agent can anticipate this project's gotchas; appended-to in End-of-overnight protocol. Always gitignored (lives under `.nightbuild/`).
+- **`<repo>/.nightbuild/learnings.md`** — *distilled* project-scoped knowledge base (flaky tests, slow steps, project conventions, gotchas). NOT a chronological log — the agent reads tonight's reflections, merges novel lessons into existing topic sections, bumps "last confirmed" dates on lessons reinforced, and refines or replaces entries that are sharpened. Read at kickoff so each run inherits what previous runs learned the hard way. Per-run reflections themselves live in `<run_dir>/log.md`. Always gitignored.
 - **`tick_in_progress`** — boolean flag in `state.json` set true at tick step 6, cleared at step 10. Lets the next tick detect that the prior tick crashed mid-work and recover deterministically rather than trusting stale state.
 
 ---
@@ -92,7 +92,7 @@ When invoked to start a NightBuild on the user's project:
    - If queued tasks exist → ask clarifying questions one at a time until each task has a concrete acceptance criterion (artifact path + observable assertion). Stop the moment the spec is testable without further human input — over-questioning costs sleep.
    - If `TONIGHT.md` is empty (just the scaffold placeholders) → ask the user what to do tonight. Walk them through goal → success criterion → constraints, then proceed.
 
-2. **Read `<repo>/.nightbuild/learnings.md` if it exists.** This is the project's append-only corpus of past-run lessons. Skim the most recent entries (last ~10 runs, or the whole file if it's small) and let them shape your clarifying questions and the program you'll write — past flaky tests, slow steps, missing tools, etc. Do not modify the file at kickoff; it's appended-to only by the End-of-overnight protocol.
+2. **Read `<repo>/.nightbuild/learnings.md` if it exists.** This is the project's distilled knowledge base — topic-organized lessons curated across past runs (flaky tests, slow steps, project conventions, gotchas). Read the whole file; it's intentionally kept small. Let it shape your clarifying questions and the program you'll write — e.g. if a known-flaky test is in the path tonight, plan to retry on first failure; if a known-slow step is queued, set its `delaySeconds` accordingly. Do not modify the file at kickoff; the End-of-overnight protocol distills tonight's reflections back into it.
 
 3. **Pin the NIGHTBUILD.md version.** Resolve the canonical URL to a commit SHA: `git ls-remote https://github.com/Stevenic/nightbuild.git HEAD` (first 40 chars of the first line). Stash the SHA — you'll write it into `state.nightbuild_md_sha` at step 8. From this point on, any context-loss recovery re-fetches `https://raw.githubusercontent.com/Stevenic/nightbuild/<sha>/NIGHTBUILD.md`, never `main`, so a mid-run upstream change cannot subtly shift behavior.
 
@@ -291,7 +291,15 @@ When the success criterion is met (or the run terminates on a stop condition), p
 
 3. **Top-of-log block** in `<run_dir>/log.md` — `## MORNING SUMMARY` (success) or `## NEEDS HUMAN` (blocked).
 
-4. **Append to `<repo>/.nightbuild/learnings.md`** *(create if absent)* — one block per run, format in § Embedded scaffolds → "`learnings.md` format". Include the run date, status, phases completed, and the load-bearing reflections (what was flaky, what was slow, what surprised the loop). Future kickoffs read this file at step 2 to anticipate this project's gotchas. Keep entries terse; redundant lessons compound into noise fast.
+4. **Distill into `<repo>/.nightbuild/learnings.md`** *(create if absent)*. Read the existing file (if any) and tonight's reflections from `<run_dir>/log.md`, then update learnings.md so it remains a *distilled* knowledge base organized by topic — NOT a chronological log of every run's reflections. The per-run narrative already lives in `<run_dir>/log.md`; learnings.md is for lessons future runs should inherit.
+
+   Operations on each lesson surfaced from tonight's reflections:
+   - **Add** a new bullet to the appropriate section if the lesson is novel (not already present).
+   - **Bump** the `last confirmed` date on an existing entry if tonight's run hit the same lesson again — do not duplicate the entry.
+   - **Refine or replace** an existing entry if tonight's run sharpens, narrows, or contradicts it.
+   - **Skip silently** if tonight's run produced no novel or confirming lessons. Uneventful runs add nothing.
+   
+   Keep the file small and scannable. Format in § Embedded scaffolds → "`learnings.md` format" — topic sections (Flaky / unreliable, Slow steps, Project conventions, Gotchas, Deferred / open), each entry a single bullet with provenance dates. The agent can add new sections as they're warranted. If learnings.md grows past ~100 lines, prefer pruning over appending — but leave deletions to the user unless an entry has been clearly contradicted.
 
 5. **Fire the notify hook** *(only if `.nightbuild/preferences.json` has a `notify` command)*. Spawn the command with these env vars set: `NIGHTBUILD_STATUS` (`success` | `blocked`), `NIGHTBUILD_SUMMARY` (one-line subject from `<run_dir>/handoff.md` line 1, or the BLOCKED reason), `NIGHTBUILD_RUN_DIR` (absolute path), `NIGHTBUILD_REPO` (repo folder name). Run it, log stdout/stderr to `<run_dir>/raw/notify.log`, ignore non-zero exit (don't block the run on a flaky webhook). If no `notify` is configured, skip silently.
 
@@ -475,25 +483,40 @@ If the user later wants to change a saved preference, they can delete or edit `.
 
 ### `<repo>/.nightbuild/learnings.md` format
 
-Append-only project corpus. Created by the End-of-overnight protocol on the first successful run; appended-to thereafter. Read at kickoff step 2 to anticipate this project's gotchas. Entries are small and human-readable — no JSON gymnastics.
+A distilled, topic-organized knowledge base. **Not** a per-run journal — the per-run narrative lives in each `<run_dir>/log.md`. Read at kickoff step 2 so the agent inherits past lessons; updated by End-of-overnight step 4 (the agent merges, refines, and bumps confirmation dates rather than appending fresh blocks each run).
 
 ```markdown
-## <YYYY-MM-DD> — <status: success | blocked | partial>
+# Learnings — <project name>
 
-**Phases completed:** A, B, C, D, E
-**Iterations:** 14
-**Wall clock:** 4h 12m
-**Tokens / cost:** 1.2M tokens, ~$18 (or "untracked" if no rate set)
-**Branch:** nightbuild/2026-04-30 (parent: main)
+Distilled lessons from past NightBuild runs on this project. Future kickoffs read this file to anticipate gotchas. Sections are organized by topic; the agent prunes, merges, and refines entries to keep the file small. Per-run reflection history lives in each run's `<run_dir>/log.md`.
 
-### Lessons
-- <one bullet per load-bearing reflection — flaky test, slow step, surprise dependency, etc. Skip if the run was uneventful.>
-- <bullet>
+---
 
-### Defer to next time
-- <only if applicable — work the loop deliberately punted, or scope the user should consider for a future TONIGHT.md>
+## Flaky / unreliable
+
+- `<test path or step>` — what fails, how often, what to try first. *first seen YYYY-MM-DD; last confirmed YYYY-MM-DD*
+
+## Slow steps
+
+- `<command or phase>` — observed wall-clock and pacing rule (e.g. `delaySeconds` choice, skip-when-engine-untouched). *first seen YYYY-MM-DD*
+
+## Project conventions
+
+- <convention or constraint that wasn't obvious from a fresh read of the repo — package manager choice, hook requirements, naming rules>. *first seen YYYY-MM-DD*
+
+## Gotchas
+
+- <surprise that bit a previous run; how to avoid it next time>. *first seen YYYY-MM-DD; last confirmed YYYY-MM-DD*
+
+## Deferred / open
+
+- <work a previous run deliberately punted on; may be worth a future TONIGHT.md item>. *deferred YYYY-MM-DD in run <run_dir>*
 ```
 
-Keep it tight. The signal is the **Lessons** bullets — these are what future kickoffs scan to anticipate problems. A run without surprises can have an empty Lessons section; that's fine. Don't pad. Don't repeat lessons that already appear in earlier entries; if a lesson recurs, append a `(seen again <date>)` note to the original entry rather than duplicating.
+Entry shape rules:
 
-To prune over time, the user can edit the file directly — the agent never deletes from it.
+- Each entry is a single bullet. If a lesson grows past two lines, it's probably two lessons — split.
+- Provenance dates: `first seen` is when the lesson was added; `last confirmed` is the most recent run that hit it again. Both are optional but useful for spotting stale entries.
+- Sections are flexible — the agent can add new ones (e.g. "CI quirks", "External dependencies") if a category recurs. Avoid one-off sections.
+- A run that learns nothing new touches nothing. Uneventful runs do not show up here.
+- The user can edit/prune freely — the agent reads whatever shape it finds.
