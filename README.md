@@ -24,7 +24,7 @@ Under the hood the agent generates a per-run program (mission, phases, done-bars
 NightBuild ships a canonical [`NIGHTBUILD.md`](NIGHTBUILD.md) — the operational spec a coding agent reads to set up and run a NightBuild on your project. Paste this prompt into your agent of choice:
 
 ```
-Read the NIGHTBUILD.md file at https://raw.githubusercontent.com/Stevenic/NightBuild/main/NIGHTBUILD.md
+Read the NIGHTBUILD.md file at https://raw.githubusercontent.com/Stevenic/nightbuild/main/NIGHTBUILD.md
 and follow its instructions to kick off a night build for this project.
 ```
 

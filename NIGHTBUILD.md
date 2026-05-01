@@ -1,7 +1,7 @@
 # NIGHTBUILD.md
 
 **Audience:** the coding agent invoked to run a NightBuild for the user's current project.
-**Canonical location:** `https://raw.githubusercontent.com/Stevenic/NightBuild/main/NIGHTBUILD.md`. Read it once at kickoff and keep it in conversation context for the rest of the run. **Pin the version at kickoff:** record the resolved commit SHA in `state.nightbuild_md_sha` (resolve `main` via `git ls-remote https://github.com/Stevenic/NightBuild.git HEAD`, taking the first 40 chars). On context loss, re-fetch from the SHA-pinned URL — `https://raw.githubusercontent.com/Stevenic/NightBuild/<sha>/NIGHTBUILD.md` — never from `main` again, so a mid-run upstream change cannot subtly shift behavior.
+**Canonical location:** `https://raw.githubusercontent.com/Stevenic/nightbuild/main/NIGHTBUILD.md`. Read it once at kickoff and keep it in conversation context for the rest of the run. **Pin the version at kickoff:** record the resolved commit SHA in `state.nightbuild_md_sha` (resolve `main` via `git ls-remote https://github.com/Stevenic/nightbuild.git HEAD`, taking the first 40 chars). On context loss, re-fetch from the SHA-pinned URL — `https://raw.githubusercontent.com/Stevenic/nightbuild/<sha>/NIGHTBUILD.md` — never from `main` again, so a mid-run upstream change cannot subtly shift behavior.
 
 This file is self-contained — every scaffold the agent needs to write to the user's project is embedded below.
 
@@ -68,7 +68,7 @@ First-time bootstrap on a repo. One-shot — creates the files NightBuild needs,
    > **At bedtime:** paste this prompt into me (or any coding agent) to start the night's run:
    >
    > ```
-   > Read the NIGHTBUILD.md file at https://raw.githubusercontent.com/Stevenic/NightBuild/main/NIGHTBUILD.md
+   > Read the NIGHTBUILD.md file at https://raw.githubusercontent.com/Stevenic/nightbuild/main/NIGHTBUILD.md
    > and follow its instructions to kick off a night build for this project.
    > ```
    >
@@ -94,7 +94,7 @@ When invoked to start a NightBuild on the user's project:
 
 2. **Read `<repo>/.nightbuild/learnings.md` if it exists.** This is the project's append-only corpus of past-run lessons. Skim the most recent entries (last ~10 runs, or the whole file if it's small) and let them shape your clarifying questions and the program you'll write — past flaky tests, slow steps, missing tools, etc. Do not modify the file at kickoff; it's appended-to only by the End-of-overnight protocol.
 
-3. **Pin the NIGHTBUILD.md version.** Resolve the canonical URL to a commit SHA: `git ls-remote https://github.com/Stevenic/NightBuild.git HEAD` (first 40 chars of the first line). Stash the SHA — you'll write it into `state.nightbuild_md_sha` at step 8. From this point on, any context-loss recovery re-fetches `https://raw.githubusercontent.com/Stevenic/NightBuild/<sha>/NIGHTBUILD.md`, never `main`, so a mid-run upstream change cannot subtly shift behavior.
+3. **Pin the NIGHTBUILD.md version.** Resolve the canonical URL to a commit SHA: `git ls-remote https://github.com/Stevenic/nightbuild.git HEAD` (first 40 chars of the first line). Stash the SHA — you'll write it into `state.nightbuild_md_sha` at step 8. From this point on, any context-loss recovery re-fetches `https://raw.githubusercontent.com/Stevenic/nightbuild/<sha>/NIGHTBUILD.md`, never `main`, so a mid-run upstream change cannot subtly shift behavior.
 
 4. **Optional cost cap.** Ask once:
    > Set a cost cap for tonight's run? (e.g. `$10`, `$25`, or skip — default is no cap).
@@ -152,7 +152,7 @@ If all checks pass, append a `## Boot passed` block to `<run_dir>/log.md` with e
 
 Every wakeup:
 
-1. **Load context.** Read `<run_dir>/state.json` and `<run_dir>/program.md`. NIGHTBUILD.md was loaded at kickoff and remains in conversation context — if it's missing (context reset), re-fetch from the SHA-pinned URL `https://raw.githubusercontent.com/Stevenic/NightBuild/<state.nightbuild_md_sha>/NIGHTBUILD.md`, never `main`.
+1. **Load context.** Read `<run_dir>/state.json` and `<run_dir>/program.md`. NIGHTBUILD.md was loaded at kickoff and remains in conversation context — if it's missing (context reset), re-fetch from the SHA-pinned URL `https://raw.githubusercontent.com/Stevenic/nightbuild/<state.nightbuild_md_sha>/NIGHTBUILD.md`, never `main`.
 
 2. **Crash-recovery check.** If `state.tick_in_progress === true`, the previous tick crashed mid-work. Reconcile:
    - Compare `state.head_at_tick_start` to `git rev-parse HEAD`. If HEAD has new commits beyond the snapshot, the previous tick committed but didn't finish housekeeping — accept the commit(s), advance `iteration` and `last_completed_step` from the latest commit message, append a `## Tick recovered (post-commit crash)` entry to `<run_dir>/log.md`.
@@ -434,7 +434,7 @@ Written at kickoff step 8 to `<run_dir>/state.json`. Lives inside the run folder
 Field notes:
 
 - `run_dir` — set at kickoff to `.nightbuild/<YYYY-MM-DD>/` (with `-HHMM` suffix on collision). Where this run's `program.md`, `log.md`, and `raw/` artifacts live.
-- `nightbuild_md_sha` — the canonical NIGHTBUILD.md commit SHA pinned at kickoff. On context loss, the recovery agent fetches `https://raw.githubusercontent.com/Stevenic/NightBuild/<sha>/NIGHTBUILD.md` to load the *exact* version the run started under, never `main`.
+- `nightbuild_md_sha` — the canonical NIGHTBUILD.md commit SHA pinned at kickoff. On context loss, the recovery agent fetches `https://raw.githubusercontent.com/Stevenic/nightbuild/<sha>/NIGHTBUILD.md` to load the *exact* version the run started under, never `main`.
 - `tick_in_progress` — set true at tick step 6, false at step 10. If a tick reads it as true, the previous tick crashed mid-work; the recovery sequence in tick step 2 reconciles state vs `git log`.
 - `head_at_tick_start` — `git rev-parse HEAD` snapshot at tick step 6, used by recovery to determine whether the prior tick committed before crashing.
 - `tokens_total` — cumulative input+output tokens consumed across all ticks. Always tracked.
